@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Collaborative Tower</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="hud">
+      <div class="hud-title">Skyline Tower</div>
+      <div class="hud-pill">Basket: Left side</div>
+      <div class="hud-pill">Build Zone: Right side</div>
+      <div class="hud-pill" id="count">Placed: 0</div>
+    </div>
+    <div id="tips">
+      Drag bricks from the basket • Drop inside the build zone • Press N to add a note • Click noted bricks to read
+    </div>
+    <div id="scroll-root">
+      <canvas id="world"></canvas>
+    </div>
+
+    <div id="note-modal" class="modal is-hidden" aria-hidden="true">
+      <div class="modal-backdrop" data-close="true"></div>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="note-title">
+        <div class="modal-title" id="note-title">Sticky note</div>
+        <div class="modal-body">
+          <textarea
+            id="note-input"
+            class="modal-input"
+            rows="5"
+            maxlength="220"
+            placeholder="Write a short note for everyone…"
+          ></textarea>
+          <div id="note-view" class="modal-view is-hidden"></div>
+        </div>
+        <div class="modal-actions">
+          <button id="note-cancel" class="btn btn-ghost" type="button">Close</button>
+          <button id="note-save" class="btn btn-primary" type="button">Pin note</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/matter-js@0.20.0/build/matter.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
