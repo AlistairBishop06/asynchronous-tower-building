@@ -341,4 +341,20 @@ body.is-dragging-note {
 #world {
   display: block;
   margin: 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+#note-toolbox {
+  z-index: 3;
+}
+
+body.is-dragging-brick #note-toolbox {
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.35;
+}
+
+body.is-dragging-brick #world {
+  z-index: 4;
 }

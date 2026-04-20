@@ -17,6 +17,9 @@ const canvas = document.getElementById("world");
 const ctx = canvas.getContext("2d");
 const scrollRoot = document.getElementById("scroll-root");
 const countEl = document.getElementById("count");
+const cooldownEl = document.getElementById("cooldown");
+const tipsEl = document.getElementById("tips");
+const baseTipsText = tipsEl ? tipsEl.textContent : "";
 
 const noteModal = document.getElementById("note-modal");
 const noteInput = document.getElementById("note-input");
@@ -51,6 +54,10 @@ let draggingBrick = null;
 const placedBrickIds = new Set();
 const sessionPlacedBrickIds = new Set();
 const brickById = new Map();
+
+const PLACE_COOLDOWN_MS = 10 * 60 * 1000;
+const PLACE_COOLDOWN_KEY = "tower:placeCooldownUntilMs";
+let tipsResetTimer = null;
 
 const BRICK_WIDTH = 84;
 const BRICK_HEIGHT = 24;
@@ -295,6 +302,68 @@ function ensureStaticSurfaces() {
   World.add(engine.world, [groundBody, leftWall, rightWall]);
 }
 
+function readCooldownUntilMs() {
+  try {
+    const raw = window.localStorage.getItem(PLACE_COOLDOWN_KEY);
+    const parsed = Number(raw);
+    return Number.isFinite(parsed) ? parsed : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writeCooldownUntilMs(value) {
+  try {
+    window.localStorage.setItem(PLACE_COOLDOWN_KEY, String(Math.max(0, Math.floor(value || 0))));
+  } catch {
+    // ignore
+  }
+}
+
+function getPlaceCooldownRemainingMs() {
+  const untilMs = readCooldownUntilMs();
+  return Math.max(0, untilMs - Date.now());
+}
+
+function isPlaceCooldownActive() {
+  return getPlaceCooldownRemainingMs() > 0;
+}
+
+function setPlaceCooldownNow() {
+  writeCooldownUntilMs(Date.now() + PLACE_COOLDOWN_MS);
+  updateCooldownUI();
+}
+
+function formatDurationMs(ms) {
+  const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, "0")}`;
+}
+
+function updateCooldownUI() {
+  if (!cooldownEl) {
+    return;
+  }
+  const remaining = getPlaceCooldownRemainingMs();
+  cooldownEl.textContent = remaining > 0 ? `Cooldown: ${formatDurationMs(remaining)}` : "Cooldown: Ready";
+}
+
+function flashTips(text, durationMs = 1800) {
+  if (!tipsEl) {
+    return;
+  }
+  if (tipsResetTimer) {
+    clearTimeout(tipsResetTimer);
+    tipsResetTimer = null;
+  }
+  tipsEl.textContent = text;
+  tipsResetTimer = setTimeout(() => {
+    tipsEl.textContent = baseTipsText;
+    tipsResetTimer = null;
+  }, durationMs);
+}
+
 function setCount() {
   countEl.textContent = `Placed: ${placedBrickIds.size}`;
 }
@@ -409,6 +478,7 @@ function createActiveBrick() {
 
 function beginDragging(brick, cursorPoint) {
   draggingBrick = brick;
+  document.body.classList.add("is-dragging-brick");
 
   dragConstraint = Constraint.create({
     pointA: { x: cursorPoint.x, y: cursorPoint.y },
@@ -446,6 +516,7 @@ function endDragging() {
     dragConstraint = null;
   }
   draggingBrick = null;
+  document.body.classList.remove("is-dragging-brick");
 }
 
 function addPlacedBrick(brickData) {
@@ -1011,6 +1082,10 @@ canvas.addEventListener("mousedown", (evt) => {
     pt.y >= basketBounds.y &&
     pt.y <= basketBounds.y + basketBounds.height
   ) {
+    if (isPlaceCooldownActive()) {
+      flashTips(`Cooling down… ${formatDurationMs(getPlaceCooldownRemainingMs())}`);
+      return;
+    }
     const brick = createActiveBrick();
     beginDragging(brick, pt);
   } else {
@@ -1143,6 +1218,8 @@ function finalizePlacedBrick(brick) {
     setCount();
   }
 
+  setPlaceCooldownNow();
+
   socket.emit("brick:place", {
     id,
     x: brick.position.x,
@@ -1201,4 +1278,6 @@ setupCanvas();
 setCount();
 scrollToGround();
 positionNoteToolbox();
+updateCooldownUI();
+setInterval(updateCooldownUI, 1000);
 render();
