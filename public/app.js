@@ -23,6 +23,7 @@ const noteInput = document.getElementById("note-input");
 const noteView = document.getElementById("note-view");
 const noteCancel = document.getElementById("note-cancel");
 const noteSave = document.getElementById("note-save");
+const noteToolbox = document.getElementById("note-toolbox");
 const noteDragButton = document.getElementById("note-drag");
 
 let noteTargetBrick = null;
@@ -226,6 +227,24 @@ function ensurePatterns() {
   }
 }
 
+function positionNoteToolbox() {
+  if (!noteToolbox) {
+    return;
+  }
+
+  const rootRect = scrollRoot.getBoundingClientRect();
+  const canvasRect = canvas.getBoundingClientRect();
+
+  const canvasOffsetLeft = canvasRect.left - rootRect.left + scrollRoot.scrollLeft;
+  const canvasOffsetTop = canvasRect.top - rootRect.top + scrollRoot.scrollTop;
+
+  const x = basketBounds.x + basketBounds.width + 18;
+  const y = basketBounds.y + 6;
+
+  noteToolbox.style.left = `${Math.round(canvasOffsetLeft + x)}px`;
+  noteToolbox.style.top = `${Math.round(canvasOffsetTop + y)}px`;
+}
+
 function recomputeZones() {
   basketBounds = {
     x: 50,
@@ -238,6 +257,8 @@ function recomputeZones() {
     xMin: worldWidth() * 0.57,
     xMax: worldWidth() - 70
   };
+
+  positionNoteToolbox();
 }
 
 function setupCanvas() {
@@ -1029,6 +1050,7 @@ window.addEventListener("resize", () => {
   worldHeight = Math.max(prevHeight, nextMin);
   setupCanvas();
   scrollToGround();
+  positionNoteToolbox();
 });
 
 noteCancel.addEventListener("click", () => {
@@ -1072,6 +1094,7 @@ function scrollToGround() {
 scrollRoot.addEventListener("scroll", () => {
   const next = clampScrollTop(scrollRoot.scrollTop);
   if (scrollRoot.scrollTop !== next) scrollRoot.scrollTop = next;
+  positionNoteToolbox();
 });
 
 // Prevent "elastic" / momentum overscroll past the ground (which can desync the DOM scroll position
@@ -1153,6 +1176,7 @@ Matter.Events.on(engine, "afterUpdate", () => {
 socket.on("tower:init", (bricks) => {
   bricks.forEach(addPlacedBrick);
   scrollToGround();
+  positionNoteToolbox();
 });
 
 socket.on("brick:placed", (brick) => {
@@ -1176,4 +1200,5 @@ worldHeight = initialWorldHeight();
 setupCanvas();
 setCount();
 scrollToGround();
+positionNoteToolbox();
 render();

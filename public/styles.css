@@ -70,18 +70,17 @@ body {
 }
 
 #note-toolbox {
-  position: fixed;
-  top: 78px;
-  right: 16px;
-  z-index: 12;
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  z-index: 20;
   display: grid;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 10px 12px 12px;
   border-radius: 16px;
-  background: var(--ui-glass-strong);
-  backdrop-filter: blur(10px) saturate(1.2);
-  border: 1px solid rgba(8, 34, 53, 0.1);
-  box-shadow: 0 16px 40px rgba(6, 38, 63, 0.18);
+  background: linear-gradient(135deg, #a36b3a, #6d3f1f);
+  border: 1px solid rgba(25, 10, 3, 0.42);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.28);
   pointer-events: auto;
   user-select: none;
 }
@@ -90,7 +89,8 @@ body {
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 0.2px;
-  color: rgba(8, 34, 53, 0.9);
+  color: rgba(255, 247, 223, 0.95);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.22);
 }
 
 .note-toolbox-hint {
@@ -98,12 +98,12 @@ body {
   font-size: 12px;
   font-weight: 650;
   line-height: 1.2;
-  color: var(--ui-ink-soft);
+  color: rgba(255, 247, 223, 0.82);
 }
 
 .note-sticky {
   appearance: none;
-  border: 0;
+  border: 1px solid rgba(25, 10, 3, 0.16);
   border-radius: 12px;
   padding: 12px 14px;
   font-weight: 950;
@@ -311,8 +311,7 @@ body.is-dragging-note {
   }
 
   #note-toolbox {
-    top: 70px;
-    right: 12px;
+    left: 12px;
   }
 }
 
