@@ -23,9 +23,13 @@ const noteInput = document.getElementById("note-input");
 const noteView = document.getElementById("note-view");
 const noteCancel = document.getElementById("note-cancel");
 const noteSave = document.getElementById("note-save");
+const noteDragButton = document.getElementById("note-drag");
 
 let noteTargetBrick = null;
 let noteMode = "edit"; // "edit" | "view"
+let stickyNoteDragActive = false;
+let stickyNotePointerId = null;
+let stickyNoteGhost = null;
 
 const engine = Engine.create();
 engine.gravity.y = 1.15;
@@ -44,6 +48,8 @@ let buildZone = { xMin: 0, xMax: 0 };
 let dragConstraint = null;
 let draggingBrick = null;
 const placedBrickIds = new Set();
+const sessionPlacedBrickIds = new Set();
+const brickById = new Map();
 
 const BRICK_WIDTH = 84;
 const BRICK_HEIGHT = 24;
@@ -330,6 +336,41 @@ function getMouseCanvasPoint(evt) {
   };
 }
 
+function getClientCanvasPoint(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: clientX - rect.left,
+    y: clientY - rect.top
+  };
+}
+
+function getSessionPlacedStaticBodies() {
+  const bodies = [];
+  for (const id of sessionPlacedBrickIds) {
+    const body = brickById.get(id);
+    if (body && body.isStatic) {
+      bodies.push(body);
+    }
+  }
+  return bodies;
+}
+
+function findSessionPlacedBrickAtClientPoint(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const insideCanvas =
+    clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+  if (!insideCanvas) {
+    return null;
+  }
+
+  const bodies = getSessionPlacedStaticBodies();
+  if (!bodies.length) {
+    return null;
+  }
+  const pt = getClientCanvasPoint(clientX, clientY);
+  return Query.point(bodies, pt)[0] || null;
+}
+
 function createActiveBrick() {
   const startX = basketBounds.x + basketBounds.width / 2 + (Math.random() * 18 - 9);
   const startY = basketBounds.y + basketBounds.height / 2;
@@ -405,6 +446,7 @@ function addPlacedBrick(brickData) {
   brick.plugin.note = typeof brickData.note === "string" && brickData.note.trim() ? brickData.note : undefined;
   Body.setAngle(brick, brickData.angle || 0);
   World.add(engine.world, brick);
+  brickById.set(brickData.id, brick);
   placedBrickIds.add(brickData.id);
   setCount();
   maybeExpandWorldForY(brickData.y);
@@ -543,6 +585,41 @@ function drawBrickBody(body, fill, pattern) {
   ctx.lineWidth = 1.4;
   ctx.stroke();
   ctx.restore();
+}
+
+function drawBrickHighlight(body) {
+  const w = body.plugin.w || BRICK_WIDTH;
+  const h = body.plugin.h || BRICK_HEIGHT;
+  const r = Math.max(3, Math.min(7, h * 0.35)) + 3;
+
+  ctx.save();
+  ctx.translate(body.position.x, body.position.y);
+  ctx.rotate(body.angle);
+
+  ctx.shadowColor = "rgba(255, 205, 61, 0.55)";
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetY = 6;
+  ctx.lineWidth = 3.2;
+  ctx.strokeStyle = "rgba(255, 241, 168, 0.95)";
+
+  roundRectPath(-w / 2 - 4, -h / 2 - 4, w + 8, h + 8, r);
+  ctx.stroke();
+
+  ctx.globalAlpha = 0.16;
+  ctx.fillStyle = "rgba(255, 205, 61, 0.9)";
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawStickyNoteEligibleHighlights() {
+  if (!stickyNoteDragActive) {
+    return;
+  }
+  const bodies = getSessionPlacedStaticBodies();
+  for (const body of bodies) {
+    drawBrickHighlight(body);
+  }
 }
 
 function drawBackground() {
@@ -803,8 +880,102 @@ function render() {
     );
   }
   drawConstraintLine();
+  drawStickyNoteEligibleHighlights();
 
   requestAnimationFrame(render);
+}
+
+function ensureStickyNoteGhost() {
+  if (stickyNoteGhost) {
+    return stickyNoteGhost;
+  }
+  if (!noteDragButton) {
+    return null;
+  }
+
+  stickyNoteGhost = noteDragButton.cloneNode(true);
+  stickyNoteGhost.removeAttribute("id");
+  stickyNoteGhost.classList.add("note-sticky-ghost");
+  document.body.appendChild(stickyNoteGhost);
+  return stickyNoteGhost;
+}
+
+function setStickyNoteGhostPos(clientX, clientY) {
+  const ghost = ensureStickyNoteGhost();
+  if (!ghost) {
+    return;
+  }
+  ghost.style.left = `${clientX}px`;
+  ghost.style.top = `${clientY}px`;
+}
+
+function clearStickyNoteGhost() {
+  if (!stickyNoteGhost) {
+    return;
+  }
+  stickyNoteGhost.remove();
+  stickyNoteGhost = null;
+}
+
+function startStickyNoteDrag(evt) {
+  if (!noteDragButton) {
+    return;
+  }
+  if (!noteModal.classList.contains("is-hidden")) {
+    return;
+  }
+
+  stickyNoteDragActive = true;
+  stickyNotePointerId = evt.pointerId;
+  document.body.classList.add("is-dragging-note");
+  noteDragButton.setPointerCapture(evt.pointerId);
+  setStickyNoteGhostPos(evt.clientX, evt.clientY);
+}
+
+function endStickyNoteDrag(evt) {
+  if (!stickyNoteDragActive || evt.pointerId !== stickyNotePointerId) {
+    return;
+  }
+
+  const hit = findSessionPlacedBrickAtClientPoint(evt.clientX, evt.clientY);
+
+  stickyNoteDragActive = false;
+  stickyNotePointerId = null;
+  document.body.classList.remove("is-dragging-note");
+  clearStickyNoteGhost();
+
+  if (hit) {
+    openNoteEditor(hit);
+  }
+}
+
+function cancelStickyNoteDrag(evt) {
+  if (!stickyNoteDragActive || evt.pointerId !== stickyNotePointerId) {
+    return;
+  }
+  stickyNoteDragActive = false;
+  stickyNotePointerId = null;
+  document.body.classList.remove("is-dragging-note");
+  clearStickyNoteGhost();
+}
+
+if (noteDragButton) {
+  noteDragButton.addEventListener("pointerdown", (evt) => {
+    evt.preventDefault();
+    startStickyNoteDrag(evt);
+  });
+  noteDragButton.addEventListener("pointermove", (evt) => {
+    if (!stickyNoteDragActive || evt.pointerId !== stickyNotePointerId) {
+      return;
+    }
+    setStickyNoteGhostPos(evt.clientX, evt.clientY);
+  });
+  noteDragButton.addEventListener("pointerup", (evt) => {
+    endStickyNoteDrag(evt);
+  });
+  noteDragButton.addEventListener("pointercancel", (evt) => {
+    cancelStickyNoteDrag(evt);
+  });
 }
 
 canvas.addEventListener("mousedown", (evt) => {
@@ -872,6 +1043,10 @@ noteSave.addEventListener("click", () => {
 
   const text = String(noteInput.value || "").trim().slice(0, 220);
   noteTargetBrick.plugin.note = text || undefined;
+  const id = noteTargetBrick.plugin && noteTargetBrick.plugin.brickId;
+  if (id) {
+    socket.emit("brick:note", { id, note: text || undefined });
+  }
   closeNoteModal();
 });
 
@@ -887,14 +1062,6 @@ window.addEventListener("keydown", (evt) => {
     evt.preventDefault();
     closeNoteModal();
     return;
-  }
-
-  if ((evt.key === "n" || evt.key === "N") && draggingBrick) {
-    if (!noteModal.classList.contains("is-hidden")) {
-      return;
-    }
-    evt.preventDefault();
-    openNoteEditor(draggingBrick);
   }
 });
 
@@ -945,6 +1112,8 @@ function finalizePlacedBrick(brick) {
 
   const id = brick.plugin.brickId || crypto.randomUUID();
   brick.plugin.brickId = id;
+  brickById.set(id, brick);
+  sessionPlacedBrickIds.add(id);
 
   if (!placedBrickIds.has(id)) {
     placedBrickIds.add(id);
@@ -988,6 +1157,19 @@ socket.on("tower:init", (bricks) => {
 
 socket.on("brick:placed", (brick) => {
   addPlacedBrick(brick);
+});
+
+socket.on("brick:noted", (payload) => {
+  if (!payload || typeof payload.id !== "string") {
+    return;
+  }
+  const body = brickById.get(payload.id);
+  if (!body || !body.plugin) {
+    return;
+  }
+  const raw = typeof payload.note === "string" ? payload.note : "";
+  const text = raw.trim().slice(0, 220);
+  body.plugin.note = text || undefined;
 });
 
 worldHeight = initialWorldHeight();

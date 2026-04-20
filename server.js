@@ -78,6 +78,31 @@ io.on("connection", (socket) => {
     writeDb(dbState);
     io.emit("brick:placed", brick);
   });
+
+  socket.on("brick:note", (incoming) => {
+    const id = incoming && typeof incoming.id === "string" ? incoming.id : "";
+    if (!id) {
+      return;
+    }
+
+    const rawNote = incoming && typeof incoming.note === "string" ? incoming.note : "";
+    const note = rawNote.trim().slice(0, 220);
+
+    const dbState = readDb();
+    const index = dbState.bricks.findIndex((b) => b && b.id === id);
+    if (index === -1) {
+      return;
+    }
+
+    if (note) {
+      dbState.bricks[index].note = note;
+    } else {
+      delete dbState.bricks[index].note;
+    }
+
+    writeDb(dbState);
+    io.emit("brick:noted", { id, note: note || undefined });
+  });
 });
 
 function startServer(port, retriesLeft = 10) {

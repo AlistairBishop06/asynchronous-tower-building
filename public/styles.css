@@ -69,6 +69,78 @@ body {
   pointer-events: none;
 }
 
+#note-toolbox {
+  position: fixed;
+  top: 78px;
+  right: 16px;
+  z-index: 12;
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: var(--ui-glass-strong);
+  backdrop-filter: blur(10px) saturate(1.2);
+  border: 1px solid rgba(8, 34, 53, 0.1);
+  box-shadow: 0 16px 40px rgba(6, 38, 63, 0.18);
+  pointer-events: auto;
+  user-select: none;
+}
+
+.note-toolbox-title {
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+  color: rgba(8, 34, 53, 0.9);
+}
+
+.note-toolbox-hint {
+  width: 190px;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.2;
+  color: var(--ui-ink-soft);
+}
+
+.note-sticky {
+  appearance: none;
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-weight: 950;
+  letter-spacing: 0.2px;
+  color: rgba(8, 34, 53, 0.9);
+  cursor: grab;
+  background: linear-gradient(135deg, #fff1a8, #ffd77a 70%);
+  box-shadow: 0 16px 30px rgba(255, 205, 61, 0.28);
+  position: relative;
+  text-align: left;
+}
+
+.note-sticky::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 18px;
+  height: 18px;
+  border-bottom-left-radius: 10px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0));
+  opacity: 0.8;
+}
+
+body.is-dragging-note {
+  cursor: grabbing;
+}
+
+.note-sticky-ghost {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  transform: translate(-50%, -60%);
+  opacity: 0.92;
+  filter: drop-shadow(0 18px 30px rgba(6, 38, 63, 0.28));
+}
+
 .btn {
   appearance: none;
   border: 0;
@@ -236,6 +308,11 @@ body {
     right: 12px;
     bottom: 12px;
     font-size: 12px;
+  }
+
+  #note-toolbox {
+    top: 70px;
+    right: 12px;
   }
 }
 
